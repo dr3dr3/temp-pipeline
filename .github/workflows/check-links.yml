@@ -10,6 +10,9 @@ on:
       toggle:
         required: true
         type: string
+      repo-gitops:
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +29,10 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          repository: ${{ inputs.repo-gitops }}
+          ref: 'main'
+          token: ${{ secrets.CD_PAT }}
 
       - name: Download build artifacts
         if: ${{ inputs.toggle == 'true' }}
@@ -51,11 +58,10 @@ jobs:
         if: ${{ inputs.toggle == 'true' }}
         run: |
           echo "### Linkinator" >> $GITHUB_STEP_SUMMARY
-          cd _site
-          npx linkinator "**/*.html" --config "../config/linkinator.config.json"
-          echo $(npx linkinator "**/*.html" --config "../config/linkinator.config.json") >> $GITHUB_STEP_SUMMARY
+          npx linkinator "**/*.html" --config "./config/linkinator.config.json"
+          echo $(npx linkinator "**/*.html" --config "./config/linkinator.config.json") >> $GITHUB_STEP_SUMMARY
           echo "Done: GitHub Step Summary"
-          echo $(npx linkinator "**/*.html" --config "../config/linkinator.config.json") >> links-html.json
+          echo $(npx linkinator "**/*.html" --config "./config/linkinator.config.json") >> links-html.json
           echo "Done: Create links-html.json"
           echo 'RESULT='$(jq '.passed' links-html.json) >> $GITHUB_OUTPUT
           echo "Done: Set HTML variable"
