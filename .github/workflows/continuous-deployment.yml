@@ -68,7 +68,7 @@ jobs:
 
       - name: Get Landing Pages Build Artefact
         run: |
-          wget $(curl -s https://api.github.com/repos/${{ github.repository_owner }}/${{ matrix.repo }}/releases/latest/  |  jq -r '.assets[] | select(.name | contains ("build")) | .browser_download_url')
+          wget $(curl -s https://api.github.com/repos/${{ github.repository_owner }}/${{ matrix.repo }}/releases/latest  |  jq -r '.assets[] | select(.name | contains ("build")) | .browser_download_url')
           mkdir build
           tar -xzvf build.tar.gz -C build
 
