@@ -99,7 +99,7 @@ jobs:
           rmdir root
 
       - name: List Files
-        run: echo "$(ls)" >> $GITHUB_STEP_SUMMARY
+        run: echo "$(ls -R)" >> $GITHUB_STEP_SUMMARY
 
       # Set right SITE URL for the relevant environment
       - name: Update aboslute links for relevant environments
