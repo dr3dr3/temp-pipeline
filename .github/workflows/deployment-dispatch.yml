@@ -17,7 +17,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: none
     
 jobs:
 
@@ -60,7 +60,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: none
 
     steps:
 
