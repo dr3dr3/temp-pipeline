@@ -67,7 +67,7 @@ jobs:
       - name: Dispatch
         run: |
           curl -H "Accept: application/vnd.github.everest-preview+json" \
-          -H "Authorization: token ${{ secrets.GHA_PAT }}" \
+          -H "Authorization: token ${{ secrets.REPO_DISPATCH }}" \
           --request POST --data '{"event_type": "deploy", "client_payload": {"blue-green": "${{ inputs.blue-green }}"}}' \
           https://api.github.com/repos/${{ inputs.target-repo }}/dispatches
           echo "Success"
