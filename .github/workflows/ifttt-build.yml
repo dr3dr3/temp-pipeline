@@ -1,0 +1,21 @@
+name: IFTTT
+run-name: IFTTT WebHook for Build Event
+
+on:
+    workflow_run:
+        workflows: [Build]
+        types: 
+            - completed
+
+jobs:
+    ifttt-webhook-call:
+        name: IFTTT Webhook Calls
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+        env:
+            IFTTT: ${{ secrets.IFTTT }}
+        steps:
+
+            -   name: Build Complete Event
+                run: |
+                    curl -X POST -H 'Content-Type: application/json' -d '{"phase":"build", "outcome":"fail"}' https://maker.ifttt.com/trigger/gha_build_fail/json/with/key/$IFTTT
