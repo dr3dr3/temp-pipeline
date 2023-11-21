@@ -1,5 +1,4 @@
-name: BUILD-REVEALMD
-
+name: BUILD
 on:
   workflow_call:
     inputs:
