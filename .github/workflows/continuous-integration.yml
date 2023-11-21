@@ -101,7 +101,6 @@ jobs:
   # Tag the release
   tag-release:
     name: 🚀 Tag and Release
-    if: ${{ github.event_name == 'push' }}
     needs: [set-tag, build-complete]
     uses: ./.github/workflows/tag-release.yml
     permissions:
