@@ -125,6 +125,7 @@ jobs:
     with: 
       artefact-ref: ${{ format('{0}-{1}', 'RC', github.run_id ) }}
       toggle: ${{ inputs.check-links }}
+      repo-gitops: ${{ inputs.repo-gitops }}
 
   ### Deployment
   
