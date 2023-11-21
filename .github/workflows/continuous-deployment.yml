@@ -1,0 +1,195 @@
+name: CONTINUOUS-DEPLOYMENT
+
+on:
+
+  workflow_call:
+    inputs:
+      target-deploy:
+        required: true
+        type: string
+      site-url:
+        required: true
+        type: string
+      blue-green:
+        required: true
+        type: string
+      repo-gitops:
+        required: true
+        type: string
+      check-links:
+        required: true
+        type: string
+      deploy-to:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+    
+jobs:
+
+  get-config:
+    name: Repositories GitOps
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix-solutions: ${{ steps.repos.outputs.SOLUTIONS }}
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ inputs.repo-gitops }}
+          ref: 'main'
+          token: ${{ secrets.CD_PAT }}
+
+      - name: Get Solution Repo's
+        id: repos
+        run: |
+          repos=$(yq '{"include": .repositories.solutions }' repositories.yml -o=json | jq -c)
+          echo $repos
+          echo "SOLUTIONS=$repos" >> $GITHUB_OUTPUT
+
+  get-build-artifacts:
+    name: Get Build Artifacts
+    needs: [get-config]
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.get-config.outputs.matrix-solutions) }}
+    permissions:
+      contents: none
+
+    steps:
+
+      - name: Get Landing Pages Build Artefact
+        run: |
+          wget "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}/releases/latest/" -O build.tar.gz
+          mkdir build
+          tar -xzvf build.tar.gz -C build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.route }}
+          # Output of build should be in _site folder
+          path: build/_site
+          retention-days: 1
+
+  build-artifacts:
+    name: Compile Build Artifacts
+    needs: [get-build-artifacts]
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      # - name: Move Root Route
+      #   run: mv ./root  ./
+
+      - name: List Files
+        run: echo "$(cd _site && ls -R)" >> $GITHUB_STEP_SUMMARY
+
+      # Set right SITE URL for the relevant environment
+      - name: Update aboslute links for relevant environments
+        run: grep -rl localhost . | xargs sed -i 's@http://localhost@https://${{ inputs.site-url }}@g'
+
+      # Set right URL for featurevisor feature flags service
+      - name: Update links to feature flags
+        run: grep -rl datafile-tag-all.json . | xargs sed -i 's@datafiles/ci/datafile-tag-all.json@datafiles/${{ inputs.target-deploy }}/datafile-tag-all.json@g'
+
+      # Set whether deployment is blue/green
+      - name: Update DEPLOY-BLUE-GREEN
+        run: grep -rl DEPLOY-BLUE-GREEN . | xargs sed -i 's@DEPLOY-BLUE-GREEN@${{ inputs.blue-green }}@g'
+
+      # Set deploy host to help identify blue/green
+      - name: Update DEPLOY-HOST-PLACEHOLDER
+        run: grep -rl DEPLOY-HOST-PLACEHOLDER . | xargs sed -i 's@DEPLOY-HOST-PLACEHOLDER@${{ inputs.deploy-to }}@g'
+
+      ##### Upload Deployable Artifact
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ format('{0}-{1}', 'RC', github.run_id ) }}
+          path: _site
+          retention-days: 1
+  
+  ### Pre-Deployment Tests
+
+  # Check links working in compiled deploy artefact
+  check-links:
+    name: Check Links
+    needs: [build-artifacts]
+    uses: ./.github/workflows/check-links.yml
+    permissions:
+      contents: read
+    secrets: inherit
+    with: 
+      artefact-ref: ${{ format('{0}-{1}', 'RC', github.run_id ) }}
+      toggle: ${{ inputs.check-links }}
+
+  ### Deployment
+  
+  # Deploy to Static Site Host
+  deploy-static-site:
+    name: Deploy to 
+    needs: [build-artifacts]
+    uses: ./.github/workflows/deploy-static-site.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    secrets: inherit
+    with:
+      artefact-ref: ${{ format('{0}-{1}', 'RC', github.run_id ) }}
+      deploy-to: ${{ inputs.deploy-to }}
+      site-url: ${{ inputs.site-url }}
+
+  ### Post-deployment Tests (smoke, PVT, etc)
+  
+  post-deploy-test:
+    name: Placeholder for post-deployment tests
+    needs: [deploy-static-site]
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: none
+    steps:
+
+      - name: Echo
+        run: echo "Placeholder for post-deploy test"
+
+  # Check all acceptance completed
+  acceptance-complete:
+    name: Acceptance 👍
+    needs: [build-artifacts, check-links, deploy-static-site, post-deploy-test] ### ADD ALL CHECKS
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: none
+    steps:
+
+      - name: Ready message
+        run: echo "### Acceptance Completed :thumbsup:" >> $GITHUB_STEP_SUMMARY
+
+  acceptance-failed:
+    name: Acceptance 👎
+    needs: [build-artifacts, check-links, deploy-static-site, post-deploy-test] ### ADD ALL CHECKS
+    if: always() && ( contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: none
+    steps:
+
+      - name: Ready message
+        run: echo "### Acceptance Failed :thumbsdown:" >> $GITHUB_STEP_SUMMARY
