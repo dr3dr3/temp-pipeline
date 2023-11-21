@@ -74,6 +74,7 @@ jobs:
     with: 
       artefact-ref: ${{ needs.set-tag.outputs.tag }}
       toggle: ${{ inputs.check-links }}
+      repo-gitops: dr3dr3/temp-gitops
 
   ### Check builds ok. Is a required check on the PR (setup in GitHub). 
 
