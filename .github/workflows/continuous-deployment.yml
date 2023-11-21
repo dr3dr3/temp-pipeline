@@ -94,7 +94,9 @@ jobs:
         uses: actions/download-artifact@v3
 
       - name: Move Root Route
-        run: mv root/* .
+        run: |
+          mv root/**  ./
+          rmdir root
 
       - name: List Files
         run: echo "$(ls)" >> $GITHUB_STEP_SUMMARY
