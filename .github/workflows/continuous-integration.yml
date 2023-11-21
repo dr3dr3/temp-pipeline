@@ -135,7 +135,7 @@ jobs:
     needs: [build-complete]
     uses: ./.github/workflows/deployment-dispatch.yml
     permissions:
-      contents: none
+      contents: write
     with:
       blue-green: 'blue'
       target-repo: ${{ inputs.repo-stage }}
